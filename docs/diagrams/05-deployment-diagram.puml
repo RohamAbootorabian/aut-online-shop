@@ -1,0 +1,65 @@
+@startuml 05-deployment-diagram
+' Deployment diagram. This is an honest drawing of a console program: one machine, one
+' JVM, one jar, and state that lives only as long as the process does.
+
+title Online Shop — Deployment Diagram
+
+skinparam shadowing false
+skinparam node {
+  BackgroundColor #F7FAFF
+  BorderColor #4A6FA5
+}
+skinparam artifact {
+  BackgroundColor #FDFDFD
+  BorderColor #9DB4D1
+}
+skinparam database {
+  BackgroundColor #FFF6E0
+  BorderColor #C99A2E
+}
+skinparam ArrowColor #2C4A73
+
+node "Customer's computer" as machine {
+
+  node "Terminal" as terminal
+
+  node "JVM 17 or newer" as jvm {
+    artifact "online-shop-1.0-SNAPSHOT.jar" as jar {
+      component "cli" as cli
+      component "service" as service
+      component "repository.memory" as memory
+      component "model" as model
+    }
+    database "Process memory\nLinkedHashMap per repository\nArrayList for the stock log" as heap
+  }
+}
+
+node "Payment provider\n<<external, simulated>>" as provider {
+  component "SimulatedPaymentGateway\nDailyLimitPaymentGateway" as sim
+}
+
+terminal <--> cli : stdin / stdout
+cli --> service
+service --> memory
+service --> model
+memory --> heap : reads and writes
+service --> sim : authorize(orderId, amount)
+
+note right of heap
+  Everything the shop knows is held here and
+  is gone when the process exits. That is a
+  deliberate limit of this phase, not an
+  accident: the repository interfaces are the
+  seam a database would be attached at, and
+  only Main would change.
+end note
+
+note bottom of provider
+  Drawn as a separate node because user
+  stories 10 and 11 model the gateway as an
+  actor of its own. In this build it runs in
+  the same JVM; the boundary is the
+  PaymentGateway interface, not the network.
+end note
+
+@enduml
