@@ -11,24 +11,28 @@ import ir.aut.shop.cli.ProfileCli;
 import ir.aut.shop.cli.ReviewCli;
 import ir.aut.shop.cli.Session;
 import ir.aut.shop.cli.ShopCli;
-import ir.aut.shop.model.Cart;
 import ir.aut.shop.model.Category;
-import ir.aut.shop.model.CategoryId;
 import ir.aut.shop.model.Email;
 import ir.aut.shop.model.Money;
-import ir.aut.shop.model.Order;
-import ir.aut.shop.model.OrderId;
-import ir.aut.shop.model.Payment;
-import ir.aut.shop.model.PaymentId;
 import ir.aut.shop.model.PhoneNumber;
-import ir.aut.shop.model.Product;
-import ir.aut.shop.model.ProductId;
-import ir.aut.shop.model.Review;
-import ir.aut.shop.model.ReviewId;
-import ir.aut.shop.model.StockChange;
 import ir.aut.shop.model.StockCount;
 import ir.aut.shop.model.User;
-import ir.aut.shop.model.UserId;
+import ir.aut.shop.repository.CartRepository;
+import ir.aut.shop.repository.CategoryRepository;
+import ir.aut.shop.repository.OrderRepository;
+import ir.aut.shop.repository.PaymentRepository;
+import ir.aut.shop.repository.ProductRepository;
+import ir.aut.shop.repository.ReviewRepository;
+import ir.aut.shop.repository.StockChangeLog;
+import ir.aut.shop.repository.UserRepository;
+import ir.aut.shop.repository.memory.InMemoryCartRepository;
+import ir.aut.shop.repository.memory.InMemoryCategoryRepository;
+import ir.aut.shop.repository.memory.InMemoryOrderRepository;
+import ir.aut.shop.repository.memory.InMemoryPaymentRepository;
+import ir.aut.shop.repository.memory.InMemoryProductRepository;
+import ir.aut.shop.repository.memory.InMemoryReviewRepository;
+import ir.aut.shop.repository.memory.InMemoryStockChangeLog;
+import ir.aut.shop.repository.memory.InMemoryUserRepository;
 import ir.aut.shop.service.AddressService;
 import ir.aut.shop.service.CartService;
 import ir.aut.shop.service.CatalogService;
@@ -39,18 +43,15 @@ import ir.aut.shop.service.ProductAdminService;
 import ir.aut.shop.service.ReviewService;
 import ir.aut.shop.service.SimulatedPaymentGateway;
 import ir.aut.shop.service.UserService;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Scanner;
 
 /**
  * Where the shop starts.
  *
- * <p>This class creates the in-memory stores, wires the services and screens over them and
- * hands control to the root menu. Nothing else in the program decides what anything else
- * is built from, which is what keeps every layer testable on its own.
+ * <p>This class is the only place that names a storage technology. It picks the in-memory
+ * repositories, wires the services and screens over them and hands control to the root
+ * menu. Every other class above it is written against the repository interfaces, so moving
+ * the shop onto a database would be a change to these eight lines and nowhere else.
  */
 public final class Main {
 
@@ -66,14 +67,14 @@ public final class Main {
      * @param args not used
      */
     public static void main(String[] args) {
-        Map<UserId, User> users = new HashMap<>();
-        Map<CategoryId, Category> categories = new HashMap<>();
-        Map<ProductId, Product> products = new HashMap<>();
-        Map<UserId, Cart> carts = new HashMap<>();
-        Map<OrderId, Order> orders = new HashMap<>();
-        Map<PaymentId, Payment> payments = new HashMap<>();
-        Map<ReviewId, Review> reviews = new HashMap<>();
-        List<StockChange> stockChangeLog = new ArrayList<>();
+        UserRepository users = new InMemoryUserRepository();
+        CategoryRepository categories = new InMemoryCategoryRepository();
+        ProductRepository products = new InMemoryProductRepository();
+        CartRepository carts = new InMemoryCartRepository();
+        OrderRepository orders = new InMemoryOrderRepository();
+        PaymentRepository payments = new InMemoryPaymentRepository();
+        ReviewRepository reviews = new InMemoryReviewRepository();
+        StockChangeLog stockChangeLog = new InMemoryStockChangeLog();
 
         UserService userService = new UserService(users);
         AddressService addressService = new AddressService(users);
