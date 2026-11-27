@@ -42,6 +42,7 @@ import ir.aut.shop.service.PaymentService;
 import ir.aut.shop.service.ProductAdminService;
 import ir.aut.shop.service.ReviewService;
 import ir.aut.shop.service.SimulatedPaymentGateway;
+import ir.aut.shop.service.sorting.SortStrategies;
 import ir.aut.shop.service.UserService;
 import java.util.Scanner;
 
@@ -81,7 +82,8 @@ public final class Main {
         CartService cartService = new CartService(carts, products);
         OrderService orderService = new OrderService(orders, users, products, cartService);
         ReviewService reviewService = new ReviewService(reviews, orderService);
-        CatalogService catalogService = new CatalogService(products, categories, reviewService);
+        CatalogService catalogService = new CatalogService(products, categories, reviewService,
+                        SortStrategies.standard());
         SimulatedPaymentGateway gateway = new SimulatedPaymentGateway();
         PaymentService paymentService = new PaymentService(payments, orderService, gateway);
         InventoryService inventoryService = new InventoryService(products, stockChangeLog);

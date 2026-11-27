@@ -8,6 +8,7 @@ import ir.aut.shop.model.SearchPhrase;
 import ir.aut.shop.model.SortOption;
 import ir.aut.shop.repository.CategoryRepository;
 import ir.aut.shop.repository.ProductRepository;
+import ir.aut.shop.service.sorting.SortStrategies;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +25,7 @@ public class CatalogService {
     private final ProductRepository products;
     private final CategoryRepository categories;
     private final ProductRatings ratings;
+    private final SortStrategies sortStrategies;
 
     /**
      * REQUIRES: every argument is non-null.
@@ -32,15 +34,18 @@ public class CatalogService {
      * @param products where products are kept
      * @param categories where categories are kept
      * @param ratings supplies the scores that filtering and sorting need
+     * @param sortStrategies which strategy answers which sort option
      */
     public CatalogService(ProductRepository products, CategoryRepository categories,
-            ProductRatings ratings) {
-        if (products == null || categories == null || ratings == null) {
+            ProductRatings ratings, SortStrategies sortStrategies) {
+        if (products == null || categories == null || ratings == null
+                || sortStrategies == null) {
             throw new IllegalArgumentException("CatalogService is missing a dependency");
         }
         this.products = products;
         this.categories = categories;
         this.ratings = ratings;
+        this.sortStrategies = sortStrategies;
     }
 
     /**
@@ -168,7 +173,7 @@ public class CatalogService {
             throw new IllegalArgumentException("Products and sort option must not be null");
         }
         return productsToSort.stream()
-                .sorted(comparatorFor(option))
+                .sorted(sortStrategies.strategyFor(option).comparator(ratings))
                 .toList();
     }
 
@@ -182,17 +187,5 @@ public class CatalogService {
      */
     public double ratingOf(Product product) {
         return ratings.averageRating(product.id());
-    }
-
-    private Comparator<Product> comparatorFor(SortOption option) {
-        return switch (option) {
-            case CHEAPEST -> Comparator.comparing(product -> product.price().amount());
-            case MOST_EXPENSIVE ->
-                    Comparator.<Product, java.math.BigDecimal>comparing(
-                            product -> product.price().amount()).reversed();
-            case NEWEST -> Comparator.comparing(Product::createdAt).reversed();
-            case MOST_POPULAR -> Comparator.comparingInt(Product::timesSold).reversed();
-            case HIGHEST_RATED -> Comparator.comparingDouble(this::ratingOf).reversed();
-        };
     }
 }
