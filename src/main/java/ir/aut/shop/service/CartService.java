@@ -14,7 +14,7 @@ import ir.aut.shop.repository.ProductRepository;
  * <p>The stock checks live here rather than in {@link Cart}, because the cart knows what
  * the customer wants while only the catalogue knows what is on the shelf.
  */
-public class CartService {
+public class CartService implements CheckoutBasket {
 
     private final CartRepository carts;
     private final ProductRepository products;
@@ -43,6 +43,7 @@ public class CartService {
      * @param ownerId whose cart to fetch
      * @return that customer's cart
      */
+    @Override
     public Cart cartOf(UserId ownerId) {
         if (ownerId == null) {
             throw new IllegalArgumentException("Cart owner must not be null");
@@ -111,6 +112,7 @@ public class CartService {
      *
      * @param ownerId whose cart to empty
      */
+    @Override
     public void clearCart(UserId ownerId) {
         cartOf(ownerId).clear();
     }

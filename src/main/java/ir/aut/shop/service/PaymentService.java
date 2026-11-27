@@ -21,7 +21,7 @@ import java.util.List;
 public class PaymentService {
 
     private final PaymentRepository payments;
-    private final OrderService orderService;
+    private final PayableOrders orders;
     private final PaymentGateway gateway;
 
     /**
@@ -29,16 +29,16 @@ public class PaymentService {
      * EFFECTS: Builds the service over the given payment store and gateway.
      *
      * @param payments where payment attempts are kept
-     * @param orderService supplies the orders being paid for
+     * @param orders supplies the order being paid for, already checked to be the payer's
      * @param gateway the outside party that moves the money
      */
-    public PaymentService(PaymentRepository payments, OrderService orderService,
+    public PaymentService(PaymentRepository payments, PayableOrders orders,
             PaymentGateway gateway) {
-        if (payments == null || orderService == null || gateway == null) {
+        if (payments == null || orders == null || gateway == null) {
             throw new IllegalArgumentException("PaymentService is missing a dependency");
         }
         this.payments = payments;
-        this.orderService = orderService;
+        this.orders = orders;
         this.gateway = gateway;
     }
 
@@ -56,7 +56,7 @@ public class PaymentService {
      * @return the recorded attempt, successful or failed
      */
     public Payment pay(OrderId orderId, UserId payerId) {
-        Order order = orderService.findOrderOfCustomer(orderId, payerId)
+        Order order = orders.findOrderOfCustomer(orderId, payerId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Order " + orderId + " does not belong to this customer"));
         if (!order.isPayable()) {

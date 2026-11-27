@@ -13,24 +13,24 @@ import java.util.List;
 /**
  * Opinions and scores customers leave on products (user stories 30 to 32).
  */
-public class ReviewService {
+public class ReviewService implements ProductRatings {
 
     private final ReviewRepository reviews;
-    private final OrderService orderService;
+    private final PurchaseHistory purchases;
 
     /**
      * REQUIRES: both arguments are non-null.
      * EFFECTS: Builds the service over the given review store.
      *
      * @param reviews where reviews are kept
-     * @param orderService used to check that a reviewer actually bought the product
+     * @param purchases used to check that a reviewer actually bought the product
      */
-    public ReviewService(ReviewRepository reviews, OrderService orderService) {
-        if (reviews == null || orderService == null) {
+    public ReviewService(ReviewRepository reviews, PurchaseHistory purchases) {
+        if (reviews == null || purchases == null) {
             throw new IllegalArgumentException("ReviewService is missing a dependency");
         }
         this.reviews = reviews;
-        this.orderService = orderService;
+        this.purchases = purchases;
     }
 
     /**
@@ -50,7 +50,7 @@ public class ReviewService {
         if (authorId == null || productId == null) {
             throw new IllegalArgumentException("Review needs an author and a product");
         }
-        if (!orderService.hasPurchased(authorId, productId)) {
+        if (!purchases.hasPurchased(authorId, productId)) {
             throw new IllegalArgumentException("Only a buyer of this product may review it");
         }
         if (hasReviewed(authorId, productId)) {
@@ -86,6 +86,7 @@ public class ReviewService {
      * @param productId whose score to work out
      * @return the average rating, between zero and five
      */
+    @Override
     public double averageRating(ProductId productId) {
         return reviews.findAll().stream()
                 .filter(review -> review.productId().equals(productId))
