@@ -3,6 +3,7 @@ package ir.aut.shop.cli;
 import ir.aut.shop.model.Email;
 import ir.aut.shop.model.PhoneNumber;
 import ir.aut.shop.model.User;
+import ir.aut.shop.service.PasswordResetService;
 import ir.aut.shop.service.UserService;
 
 /**
@@ -14,6 +15,7 @@ public class AuthCli {
     private final ConsoleIo io;
     private final Session session;
     private final UserService userService;
+    private final PasswordResetService passwordReset;
 
     /**
      * REQUIRES: every argument is non-null.
@@ -22,11 +24,14 @@ public class AuthCli {
      * @param io where questions are asked and answers shown
      * @param session who is signed in
      * @param userService the accounts behind the screen
+     * @param passwordReset the recovery behind the screen
      */
-    public AuthCli(ConsoleIo io, Session session, UserService userService) {
+    public AuthCli(ConsoleIo io, Session session, UserService userService,
+            PasswordResetService passwordReset) {
         this.io = io;
         this.session = session;
         this.userService = userService;
+        this.passwordReset = passwordReset;
     }
 
     /**
@@ -88,13 +93,13 @@ public class AuthCli {
         io.printTitle("Forgotten password");
         try {
             Email email = new Email(io.readLine("Email address of the account"));
-            String token = userService.requestPasswordReset(email);
+            String token = passwordReset.requestReset(email);
             io.print("A reset link was sent. For this exercise it is shown here:");
             io.print("  " + token);
 
             String typedToken = io.readLine("Reset token");
             String newPassword = io.readLine("New password (at least 6 characters)");
-            userService.resetPassword(typedToken, newPassword);
+            passwordReset.completeReset(typedToken, newPassword);
             io.printSuccess("Your password has been changed. You can sign in now.");
         } catch (IllegalArgumentException problem) {
             io.printError(problem.getMessage());

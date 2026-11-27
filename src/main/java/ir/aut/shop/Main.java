@@ -33,11 +33,13 @@ import ir.aut.shop.repository.memory.InMemoryProductRepository;
 import ir.aut.shop.repository.memory.InMemoryReviewRepository;
 import ir.aut.shop.repository.memory.InMemoryStockChangeLog;
 import ir.aut.shop.repository.memory.InMemoryUserRepository;
+import ir.aut.shop.service.AccessPolicy;
 import ir.aut.shop.service.AddressService;
 import ir.aut.shop.service.CartService;
 import ir.aut.shop.service.CatalogService;
 import ir.aut.shop.service.InventoryService;
 import ir.aut.shop.service.OrderService;
+import ir.aut.shop.service.PasswordResetService;
 import ir.aut.shop.service.PaymentService;
 import ir.aut.shop.service.ProductAdminService;
 import ir.aut.shop.service.ReviewService;
@@ -77,25 +79,28 @@ public final class Main {
         ReviewRepository reviews = new InMemoryReviewRepository();
         StockChangeLog stockChangeLog = new InMemoryStockChangeLog();
 
+        AccessPolicy access = new AccessPolicy();
+
         UserService userService = new UserService(users);
+        PasswordResetService passwordReset = new PasswordResetService(userService);
         AddressService addressService = new AddressService(users);
         CartService cartService = new CartService(carts, products);
-        OrderService orderService = new OrderService(orders, users, products, cartService);
+        OrderService orderService = new OrderService(orders, users, products, cartService, access);
         ReviewService reviewService = new ReviewService(reviews, orderService);
         CatalogService catalogService = new CatalogService(products, categories, reviewService,
                         SortStrategies.standard());
         SimulatedPaymentGateway gateway = new SimulatedPaymentGateway();
         PaymentService paymentService = new PaymentService(payments, orderService, gateway);
-        InventoryService inventoryService = new InventoryService(products, stockChangeLog);
+        InventoryService inventoryService = new InventoryService(products, stockChangeLog, access);
         ProductAdminService productAdminService =
-                new ProductAdminService(products, categories);
+                new ProductAdminService(products, categories, access);
 
         seedShop(userService, productAdminService);
 
         ConsoleIo io = new ConsoleIo(new Scanner(System.in));
         Session session = new Session();
         ShopCli shop = new ShopCli(io, session,
-                new AuthCli(io, session, userService),
+                new AuthCli(io, session, userService, passwordReset),
                 new ProfileCli(io, session, userService, addressService),
                 new CatalogCli(io, session, catalogService, cartService, reviewService),
                 new CartCli(io, session, cartService),
