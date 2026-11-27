@@ -31,6 +31,7 @@ import ir.aut.shop.model.StockCount;
 import ir.aut.shop.model.User;
 import ir.aut.shop.model.UserId;
 import ir.aut.shop.repository.ProductRepository;
+import ir.aut.shop.service.AccessPolicy;
 import ir.aut.shop.service.sorting.SortStrategies;
 import ir.aut.shop.repository.memory.InMemoryCartRepository;
 import ir.aut.shop.repository.memory.InMemoryCategoryRepository;
@@ -84,16 +85,17 @@ class ShopScenarioTest {
         products = new InMemoryProductRepository();
         gateway = new SimulatedPaymentGateway();
 
+        var access = new AccessPolicy();
         userService = new UserService(users);
         addressService = new AddressService(users);
         cartService = new CartService(carts, products);
-        orderService = new OrderService(orders, users, products, cartService);
+        orderService = new OrderService(orders, users, products, cartService, access);
         reviewService = new ReviewService(reviews, orderService);
         catalogService = new CatalogService(products, categories, reviewService,
                 SortStrategies.standard());
         paymentService = new PaymentService(payments, orderService, gateway);
-        inventoryService = new InventoryService(products, stockChangeLog);
-        productAdminService = new ProductAdminService(products, categories);
+        inventoryService = new InventoryService(products, stockChangeLog, access);
+        productAdminService = new ProductAdminService(products, categories, access);
 
         admin = userService.registerAdmin(new Email("admin@shop.ir"),
                 new PhoneNumber("09120000000"), "Shop Manager", "admin123");
