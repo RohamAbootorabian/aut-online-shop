@@ -30,6 +30,7 @@ public class OrderService implements PayableOrders, PurchaseHistory {
     /** What delivery costs; a single flat fee is enough for this phase. */
     private static final Money SHIPPING_FEE = Money.of("50000");
 
+    private final AccessPolicy access;
     private final OrderRepository orders;
     private final UserRepository users;
     private final ProductRepository products;
@@ -43,16 +44,20 @@ public class OrderService implements PayableOrders, PurchaseHistory {
      * @param users where accounts are kept
      * @param products where products are kept
      * @param basket the cart an order is placed from
+     * @param access decides who may act
      */
     public OrderService(OrderRepository orders, UserRepository users,
-            ProductRepository products, CheckoutBasket basket) {
-        if (orders == null || users == null || products == null || basket == null) {
+            ProductRepository products, CheckoutBasket basket,
+            AccessPolicy access) {
+        if (orders == null || users == null || products == null || basket == null
+                || access == null) {
             throw new IllegalArgumentException("OrderService is missing a dependency");
         }
         this.orders = orders;
         this.users = users;
         this.products = products;
         this.basket = basket;
+        this.access = access;
     }
 
     /**
@@ -160,7 +165,7 @@ public class OrderService implements PayableOrders, PurchaseHistory {
      * @return every order
      */
     public List<Order> allOrders(User actor) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "see every order");
         return orders.findAll().stream()
                 .sorted(Comparator.comparing(Order::placedAt).reversed())
                 .toList();
@@ -177,7 +182,7 @@ public class OrderService implements PayableOrders, PurchaseHistory {
      * @return the matching orders
      */
     public List<Order> ordersByStatus(User actor, OrderStatus status) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "see every order");
         if (status == null) {
             throw new IllegalArgumentException("Status must not be null");
         }
@@ -234,9 +239,4 @@ public class OrderService implements PayableOrders, PurchaseHistory {
                 () -> new IllegalArgumentException("No account with id " + userId));
     }
 
-    private static void requireAdmin(User actor) {
-        if (actor == null || !actor.isAdmin()) {
-            throw new IllegalArgumentException("Only an admin may do this");
-        }
-    }
 }
