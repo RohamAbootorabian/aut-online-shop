@@ -19,22 +19,26 @@ import java.util.List;
  */
 public class InventoryService {
 
+    private final AccessPolicy access;
     private final ProductRepository products;
     private final StockChangeLog changeLog;
 
     /**
-     * REQUIRES: both arguments are non-null.
+     * REQUIRES: every argument is non-null.
      * EFFECTS: Builds the service over the given product repository and stock log.
      *
      * @param products where products are kept
      * @param changeLog where stock adjustments are recorded
+     * @param access decides who may act
      */
-    public InventoryService(ProductRepository products, StockChangeLog changeLog) {
-        if (products == null || changeLog == null) {
+    public InventoryService(ProductRepository products, StockChangeLog changeLog,
+            AccessPolicy access) {
+        if (products == null || changeLog == null || access == null) {
             throw new IllegalArgumentException("InventoryService is missing a dependency");
         }
         this.products = products;
         this.changeLog = changeLog;
+        this.access = access;
     }
 
     /**
@@ -47,7 +51,7 @@ public class InventoryService {
      * @return every product, active or not
      */
     public List<Product> viewStock(User actor) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "manage stock");
         return products.findAll().stream()
                 .sorted(Comparator.comparing(Product::name))
                 .toList();
@@ -68,7 +72,7 @@ public class InventoryService {
      * @param reason why the stock is being changed
      */
     public void changeStock(User actor, ProductId productId, int delta, String reason) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "manage stock");
         Product product = requireProduct(productId);
         if (delta == 0) {
             throw new IllegalArgumentException("Stock change must not be zero");
@@ -94,7 +98,7 @@ public class InventoryService {
      * @return the recorded stock changes
      */
     public List<StockChange> changeLogOf(User actor, ProductId productId) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "manage stock");
         return changeLog.findAll().stream()
                 .filter(change -> change.productId().equals(productId))
                 .sorted(Comparator.comparing(StockChange::changedAt).reversed())
@@ -106,9 +110,4 @@ public class InventoryService {
                 () -> new IllegalArgumentException("No product with id " + productId));
     }
 
-    private static void requireAdmin(User actor) {
-        if (actor == null || !actor.isAdmin()) {
-            throw new IllegalArgumentException("Only an admin may manage stock");
-        }
-    }
 }
