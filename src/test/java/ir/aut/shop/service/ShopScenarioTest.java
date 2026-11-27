@@ -31,6 +31,7 @@ import ir.aut.shop.model.StockCount;
 import ir.aut.shop.model.User;
 import ir.aut.shop.model.UserId;
 import ir.aut.shop.repository.ProductRepository;
+import ir.aut.shop.service.sorting.SortStrategies;
 import ir.aut.shop.repository.memory.InMemoryCartRepository;
 import ir.aut.shop.repository.memory.InMemoryCategoryRepository;
 import ir.aut.shop.repository.memory.InMemoryOrderRepository;
@@ -88,7 +89,8 @@ class ShopScenarioTest {
         cartService = new CartService(carts, products);
         orderService = new OrderService(orders, users, products, cartService);
         reviewService = new ReviewService(reviews, orderService);
-        catalogService = new CatalogService(products, categories, reviewService);
+        catalogService = new CatalogService(products, categories, reviewService,
+                SortStrategies.standard());
         paymentService = new PaymentService(payments, orderService, gateway);
         inventoryService = new InventoryService(products, stockChangeLog);
         productAdminService = new ProductAdminService(products, categories);
