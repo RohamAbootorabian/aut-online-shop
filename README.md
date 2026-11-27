@@ -12,8 +12,8 @@
 
 | نام و نام خانوادگی | شمارهٔ دانشجویی | گیت‌هاب | سهم کار |
 |---|---|---|---|
-| ‹نام عضو اول› | ‹شماره› | [@RohamAbootorabian](https://github.com/RohamAbootorabian) | بازطراحی SOLID، پنج نمودار اصلی، مستندات |
-| ‹نام عضو دوم› | ‹شماره› | ‹یوزرنیم› | نمودار توالی نوشتن نظر، Code Review |
+| امیرمهدی ابوترابیان | ۴۰۳۱۳۰۰۱ | [@RohamAbootorabian](https://github.com/RohamAbootorabian) | بازطراحی SOLID، پنج نمودار اصلی، مستندات |
+| آرش منوچهری | ۴۰۲۱۱۴۱۸ | [@ArashManouchehri](https://github.com/ArashManouchehri) | نمودار توالی نوشتن نظر، Code Review |
 
 مخزن: <https://github.com/RohamAbootorabian/aut-online-shop>
 
