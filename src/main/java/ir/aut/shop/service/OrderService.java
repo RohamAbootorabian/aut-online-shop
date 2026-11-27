@@ -25,7 +25,7 @@ import java.util.Optional;
  * Turning a cart into an order and looking orders up afterwards
  * (user stories 20 to 22, 26, 27 and 36).
  */
-public class OrderService {
+public class OrderService implements PayableOrders, PurchaseHistory {
 
     /** What delivery costs; a single flat fee is enough for this phase. */
     private static final Money SHIPPING_FEE = Money.of("50000");
@@ -33,7 +33,7 @@ public class OrderService {
     private final OrderRepository orders;
     private final UserRepository users;
     private final ProductRepository products;
-    private final CartService cartService;
+    private final CheckoutBasket basket;
 
     /**
      * REQUIRES: every argument is non-null.
@@ -42,17 +42,17 @@ public class OrderService {
      * @param orders where orders are kept
      * @param users where accounts are kept
      * @param products where products are kept
-     * @param cartService the carts orders are placed from
+     * @param basket the cart an order is placed from
      */
     public OrderService(OrderRepository orders, UserRepository users,
-            ProductRepository products, CartService cartService) {
-        if (orders == null || users == null || products == null || cartService == null) {
+            ProductRepository products, CheckoutBasket basket) {
+        if (orders == null || users == null || products == null || basket == null) {
             throw new IllegalArgumentException("OrderService is missing a dependency");
         }
         this.orders = orders;
         this.users = users;
         this.products = products;
-        this.cartService = cartService;
+        this.basket = basket;
     }
 
     /**
@@ -83,7 +83,7 @@ public class OrderService {
      */
     public Order startCheckout(UserId customerId, AddressId shippingAddressId) {
         User customer = requireUser(customerId);
-        Cart cart = cartService.cartOf(customerId);
+        Cart cart = basket.cartOf(customerId);
         if (cart.isEmpty()) {
             throw new IllegalArgumentException("Cannot place an order from an empty cart");
         }
@@ -101,7 +101,7 @@ public class OrderService {
                 SHIPPING_FEE, LocalDateTime.now());
 
         takeOrderedUnitsOffTheShelf(orderLines);
-        cartService.clearCart(customerId);
+        basket.clearCart(customerId);
         orders.save(order.id(), order);
         return order;
     }
@@ -129,6 +129,7 @@ public class OrderService {
      * @param customerId who is asking
      * @return the order when it is theirs, or empty
      */
+    @Override
     public Optional<Order> findOrderOfCustomer(OrderId orderId, UserId customerId) {
         return findOrder(orderId)
                 .filter(order -> order.customerId().equals(customerId));
@@ -195,6 +196,7 @@ public class OrderService {
      * @param productId the product they want to review
      * @return true when they have bought it
      */
+    @Override
     public boolean hasPurchased(UserId customerId, ProductId productId) {
         return orders.findAll().stream()
                 .filter(order -> order.customerId().equals(customerId))

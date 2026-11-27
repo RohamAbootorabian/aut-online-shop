@@ -23,7 +23,7 @@ public class CatalogService {
 
     private final ProductRepository products;
     private final CategoryRepository categories;
-    private final ReviewService reviewService;
+    private final ProductRatings ratings;
 
     /**
      * REQUIRES: every argument is non-null.
@@ -31,16 +31,16 @@ public class CatalogService {
      *
      * @param products where products are kept
      * @param categories where categories are kept
-     * @param reviewService supplies the ratings that filtering and sorting need
+     * @param ratings supplies the scores that filtering and sorting need
      */
     public CatalogService(ProductRepository products, CategoryRepository categories,
-            ReviewService reviewService) {
-        if (products == null || categories == null || reviewService == null) {
+            ProductRatings ratings) {
+        if (products == null || categories == null || ratings == null) {
             throw new IllegalArgumentException("CatalogService is missing a dependency");
         }
         this.products = products;
         this.categories = categories;
-        this.reviewService = reviewService;
+        this.ratings = ratings;
     }
 
     /**
@@ -181,7 +181,7 @@ public class CatalogService {
      * @return the average rating
      */
     public double ratingOf(Product product) {
-        return reviewService.averageRating(product.id());
+        return ratings.averageRating(product.id());
     }
 
     private Comparator<Product> comparatorFor(SortOption option) {
