@@ -12,8 +12,8 @@
 
 | نام و نام خانوادگی | شمارهٔ دانشجویی | گیت‌هاب | سهم کار |
 |---|---|---|---|
-| ‹نام عضو اول› | ‹شماره› | [@RohamAbootorabian](https://github.com/RohamAbootorabian) | بازطراحی SOLID، نمودارهای کلاس و شیء |
-| ‹نام عضو دوم› | ‹شماره› | ‹یوزرنیم› | نمودارهای فعالیت، کامپوننت، استقرار و توالی، Code Review |
+| ‹نام عضو اول› | ‹شماره› | [@RohamAbootorabian](https://github.com/RohamAbootorabian) | بازطراحی SOLID، پنج نمودار اصلی، مستندات |
+| ‹نام عضو دوم› | ‹شماره› | ‹یوزرنیم› | نمودار توالی نوشتن نظر، Code Review |
 
 مخزن: <https://github.com/RohamAbootorabian/aut-online-shop>
 
@@ -127,7 +127,8 @@ plantuml -tpng docs/diagrams/*.puml
 | `03-activity-diagram` | فعالیت — ثبت سفارش و پرداخت |
 | `04-component-diagram` | کامپوننت |
 | `05-deployment-diagram` | استقرار |
-| `06-sequence-diagram` | توالی (بخش امتیازی) |
+| `06-sequence-diagram` | توالی — پرداخت سفارش (بخش امتیازی) |
+| `07-sequence-review` | توالی — نوشتن نظر |
 
 ---
 
@@ -153,7 +154,7 @@ main                      نسخه‌های پایدار
     ├── member-1          شاخهٔ شخصی عضو اول
     │   └── feature/…     هر قابلیت یک شاخه
     └── member-2          شاخهٔ شخصی عضو دوم
-        └── feature/…
+        └── feature/sequence-diagram-review
 ```
 
 هیچ شاخهٔ `feature` مستقیم به `develop` یا `main` ادغام نمی‌شود. مسیر همیشه
