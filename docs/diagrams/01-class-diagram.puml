@@ -1,0 +1,211 @@
+@startuml 01-class-diagram
+' Class diagram of the online shop, drawn from the code in src/main/java.
+' Value objects that wrap a single field (Email, Money, ProductId, ...) are shown in a
+' legend rather than as boxes, so the structure stays readable; they are records and carry
+' no relationships of their own beyond being the types of the attributes below.
+
+title Online Shop — Class Diagram
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam nodesep 55
+skinparam ranksep 65
+skinparam class {
+  BackgroundColor #FDFDFD
+  BorderColor #4A6FA5
+  ArrowColor #2C4A73
+}
+
+package "model" <<Frame>> #F7FAFF {
+
+  class User {
+    - id : UserId
+    - email : Email
+    - phoneNumber : PhoneNumber
+    - fullName : String
+    - passwordHash : PasswordHash
+    - role : UserRole
+    - createdAt : LocalDateTime
+    + isAdmin() : boolean
+    + matchesPassword(raw : String) : boolean
+    + addAddress(a : Address) : void
+    + removeAddress(id : AddressId) : void
+    + markDefaultAddress(id : AddressId) : void
+    + findDefaultAddress() : Optional<Address>
+    + updateProfile(..) : void
+    + changePassword(h : PasswordHash) : void
+  }
+
+  class Address {
+    - id : AddressId
+    - recipientName : String
+    - phoneNumber : PhoneNumber
+    - country : String
+    - city : String
+    - line : String
+    - postalCode : PostalCode
+    - title : String
+    - isDefault : boolean
+    + updateDetails(..) : void
+  }
+
+  class Category {
+    - id : CategoryId
+    - name : String
+    - active : boolean
+    + rename(n : String) : void
+    + deactivate() : void
+  }
+
+  class Product {
+    - id : ProductId
+    - name : String
+    - description : String
+    - price : Money
+    - stock : StockCount
+    - categoryId : CategoryId
+    - brand : String
+    - createdAt : LocalDateTime
+    - timesSold : int
+    - active : boolean
+    + isPurchasable() : boolean
+    + hasEnoughStock(q : Quantity) : boolean
+    + changePrice(p : Money) : void
+    + reduceStock(q : Quantity) : void
+    + increaseStock(n : int) : void
+    + recordSale(q : Quantity) : void
+    + deactivate() : void
+    + activate() : void
+  }
+
+  class Cart {
+    - ownerId : UserId
+    + itemsSubtotal() : Money
+    + quantityOf(p : ProductId) : int
+    + addProduct(p : Product, q : Quantity) : void
+    + changeQuantity(p : ProductId, q : Quantity) : void
+    + removeProduct(p : ProductId) : void
+    + clear() : void
+  }
+
+  class CartLine <<record>> {
+    + productId : ProductId
+    + productName : String
+    + unitPrice : Money
+    + quantity : Quantity
+    + lineTotal() : Money
+    + withQuantity(q : Quantity) : CartLine
+  }
+
+  class Order {
+    - id : OrderId
+    - customerId : UserId
+    - shippingAddress : Address
+    - shippingFee : Money
+    - placedAt : LocalDateTime
+    - status : OrderStatus
+    + itemsSubtotal() : Money
+    + totalAmount() : Money
+    + isPayable() : boolean
+    + isPaid() : boolean
+    + markPaid() : void
+    + cancel() : void
+  }
+
+  class OrderLine <<record>> {
+    + productId : ProductId
+    + productName : String
+    + unitPrice : Money
+    + quantity : Quantity
+    + lineTotal() : Money
+  }
+
+  class Payment {
+    - id : PaymentId
+    - orderId : OrderId
+    - amount : Money
+    - attemptedAt : LocalDateTime
+    - status : PaymentStatus
+    - gatewayReference : String
+    + isSuccessful() : boolean
+    + markSuccessful(ref : String) : void
+    + markFailed() : void
+  }
+
+  class Review <<record>> {
+    + id : ReviewId
+    + productId : ProductId
+    + authorId : UserId
+    + text : String
+    + rating : Rating
+    + writtenAt : LocalDateTime
+  }
+
+  class StockChange <<record>> {
+    + productId : ProductId
+    + delta : int
+    + reason : String
+    + changedBy : UserId
+    + changedAt : LocalDateTime
+  }
+
+  enum UserRole {
+    CUSTOMER
+    ADMIN
+  }
+
+  enum OrderStatus {
+    AWAITING_PAYMENT
+    PAID
+    CANCELLED
+  }
+
+  enum PaymentStatus {
+    PENDING
+    SUCCESSFUL
+    FAILED
+  }
+
+  enum SortOption {
+    CHEAPEST
+    MOST_EXPENSIVE
+    NEWEST
+    MOST_POPULAR
+    HIGHEST_RATED
+  }
+}
+
+' ---- relationships inside the model ----
+User "1" *-- "0..*" Address : keeps >
+User "1" -- "1" UserRole : has >
+Category "1" <-- "0..*" Product : belongs to >
+Cart "1" *-- "0..*" CartLine : holds >
+User "1" -- "0..1" Cart : owns >
+Order "1" *-- "1..*" OrderLine : fixes >
+Order "1" -- "1" OrderStatus : is in >
+Order "1" *-- "1" Address : ships to >
+User "1" <-- "0..*" Order : placed by >
+Order "1" <-- "1..*" Payment : paid by >
+Payment "1" -- "1" PaymentStatus : is in >
+Product "1" <-- "0..*" Review : is about >
+User "1" <-- "0..*" Review : written by >
+Product "1" <-- "0..*" StockChange : records >
+
+CartLine ..> Product : copied from
+OrderLine ..> CartLine : frozen from
+
+legend right
+  |= Value object |= Wraps |
+  | UserId, ProductId, OrderId, | a String identity |
+  | CategoryId, PaymentId, ReviewId, AddressId | |
+  | Email, PhoneNumber, PostalCode, PasswordHash | a validated String |
+  | Money | a non-negative BigDecimal |
+  | Quantity, StockCount | a non-negative int |
+  | Rating | an int from 1 to 5 |
+  | SearchPhrase | a String of at most 50 characters |
+  Each is a record: equal by value, with its rule
+  enforced in the constructor.
+endlegend
+
+@enduml
