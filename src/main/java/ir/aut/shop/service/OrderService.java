@@ -14,9 +14,11 @@ import ir.aut.shop.model.ProductId;
 import ir.aut.shop.model.User;
 import ir.aut.shop.model.UserId;
 import java.time.LocalDateTime;
+import ir.aut.shop.repository.OrderRepository;
+import ir.aut.shop.repository.ProductRepository;
+import ir.aut.shop.repository.UserRepository;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -28,22 +30,22 @@ public class OrderService {
     /** What delivery costs; a single flat fee is enough for this phase. */
     private static final Money SHIPPING_FEE = Money.of("50000");
 
-    private final Map<OrderId, Order> orders;
-    private final Map<UserId, User> users;
-    private final Map<ProductId, Product> products;
+    private final OrderRepository orders;
+    private final UserRepository users;
+    private final ProductRepository products;
     private final CartService cartService;
 
     /**
      * REQUIRES: every argument is non-null.
      * EFFECTS: Builds the service over the given stores.
      *
-     * @param orders where orders are kept, keyed by identity
-     * @param users where accounts are kept, keyed by identity
-     * @param products where products are kept, keyed by identity
+     * @param orders where orders are kept
+     * @param users where accounts are kept
+     * @param products where products are kept
      * @param cartService the carts orders are placed from
      */
-    public OrderService(Map<OrderId, Order> orders, Map<UserId, User> users,
-            Map<ProductId, Product> products, CartService cartService) {
+    public OrderService(OrderRepository orders, UserRepository users,
+            ProductRepository products, CartService cartService) {
         if (orders == null || users == null || products == null || cartService == null) {
             throw new IllegalArgumentException("OrderService is missing a dependency");
         }
@@ -100,7 +102,7 @@ public class OrderService {
 
         takeOrderedUnitsOffTheShelf(orderLines);
         cartService.clearCart(customerId);
-        orders.put(order.id(), order);
+        orders.save(order.id(), order);
         return order;
     }
 
@@ -113,7 +115,7 @@ public class OrderService {
      * @return the order, or empty
      */
     public Optional<Order> findOrder(OrderId orderId) {
-        return Optional.ofNullable(orders.get(orderId));
+        return (orders.findById(orderId));
     }
 
     /**
@@ -141,7 +143,7 @@ public class OrderService {
      * @return the customer's orders
      */
     public List<Order> ordersOf(UserId customerId) {
-        return orders.values().stream()
+        return orders.findAll().stream()
                 .filter(order -> order.customerId().equals(customerId))
                 .sorted(Comparator.comparing(Order::placedAt).reversed())
                 .toList();
@@ -158,7 +160,7 @@ public class OrderService {
      */
     public List<Order> allOrders(User actor) {
         requireAdmin(actor);
-        return orders.values().stream()
+        return orders.findAll().stream()
                 .sorted(Comparator.comparing(Order::placedAt).reversed())
                 .toList();
     }
@@ -194,7 +196,7 @@ public class OrderService {
      * @return true when they have bought it
      */
     public boolean hasPurchased(UserId customerId, ProductId productId) {
-        return orders.values().stream()
+        return orders.findAll().stream()
                 .filter(order -> order.customerId().equals(customerId))
                 .filter(Order::isPaid)
                 .flatMap(order -> order.lines().stream())
@@ -203,7 +205,7 @@ public class OrderService {
 
     private void requireEveryLineStillAvailable(List<CartLine> cartLines) {
         for (CartLine line : cartLines) {
-            Product product = products.get(line.productId());
+            Product product = products.findById(line.productId()).orElse(null);
             if (product == null || !product.isActive()) {
                 throw new IllegalArgumentException(
                         line.productName() + " is no longer on sale");
@@ -217,18 +219,17 @@ public class OrderService {
 
     private void takeOrderedUnitsOffTheShelf(List<OrderLine> orderLines) {
         for (OrderLine line : orderLines) {
-            Product product = products.get(line.productId());
+            Product product = products.findById(line.productId()).orElseThrow(
+                    () -> new IllegalStateException("A line of a placed order names a "
+                            + "product the shop no longer knows"));
             product.reduceStock(line.quantity());
             product.recordSale(line.quantity());
         }
     }
 
     private User requireUser(UserId userId) {
-        User user = users.get(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("No account with id " + userId);
-        }
-        return user;
+        return users.findById(userId).orElseThrow(
+                () -> new IllegalArgumentException("No account with id " + userId));
     }
 
     private static void requireAdmin(User actor) {

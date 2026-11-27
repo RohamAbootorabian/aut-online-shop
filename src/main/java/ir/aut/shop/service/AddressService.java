@@ -6,8 +6,8 @@ import ir.aut.shop.model.PhoneNumber;
 import ir.aut.shop.model.PostalCode;
 import ir.aut.shop.model.User;
 import ir.aut.shop.model.UserId;
+import ir.aut.shop.repository.UserRepository;
 import java.util.List;
-import java.util.Map;
 
 /**
  * The customer's address book (user story 7).
@@ -17,17 +17,17 @@ import java.util.Map;
  */
 public class AddressService {
 
-    private final Map<UserId, User> users;
+    private final UserRepository users;
 
     /**
      * REQUIRES: users is non-null.
      * EFFECTS: Builds the service over the given account store.
      *
-     * @param users where accounts are kept, keyed by identity
+     * @param users where accounts are kept
      */
-    public AddressService(Map<UserId, User> users) {
+    public AddressService(UserRepository users) {
         if (users == null) {
-            throw new IllegalArgumentException("User store must not be null");
+            throw new IllegalArgumentException("User repository must not be null");
         }
         this.users = users;
     }
@@ -126,10 +126,7 @@ public class AddressService {
     }
 
     private User requireUser(UserId userId) {
-        User user = users.get(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("No account with id " + userId);
-        }
-        return user;
+        return users.findById(userId).orElseThrow(
+                () -> new IllegalArgumentException("No account with id " + userId));
     }
 }

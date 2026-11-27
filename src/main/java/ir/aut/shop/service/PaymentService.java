@@ -7,9 +7,9 @@ import ir.aut.shop.model.Payment;
 import ir.aut.shop.model.PaymentId;
 import ir.aut.shop.model.UserId;
 import java.time.LocalDateTime;
+import ir.aut.shop.repository.PaymentRepository;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Paying for an order and recording what the gateway answered
@@ -20,7 +20,7 @@ import java.util.Map;
  */
 public class PaymentService {
 
-    private final Map<PaymentId, Payment> payments;
+    private final PaymentRepository payments;
     private final OrderService orderService;
     private final PaymentGateway gateway;
 
@@ -28,11 +28,11 @@ public class PaymentService {
      * REQUIRES: every argument is non-null.
      * EFFECTS: Builds the service over the given payment store and gateway.
      *
-     * @param payments where payment attempts are kept, keyed by identity
+     * @param payments where payment attempts are kept
      * @param orderService supplies the orders being paid for
      * @param gateway the outside party that moves the money
      */
-    public PaymentService(Map<PaymentId, Payment> payments, OrderService orderService,
+    public PaymentService(PaymentRepository payments, OrderService orderService,
             PaymentGateway gateway) {
         if (payments == null || orderService == null || gateway == null) {
             throw new IllegalArgumentException("PaymentService is missing a dependency");
@@ -66,7 +66,7 @@ public class PaymentService {
 
         Payment attempt = new Payment(PaymentId.newId(), orderId, order.totalAmount(),
                 LocalDateTime.now());
-        payments.put(attempt.id(), attempt);
+        payments.save(attempt.id(), attempt);
 
         GatewayResult result = gateway.authorize(orderId, order.totalAmount());
         if (result.approved()) {
@@ -86,7 +86,7 @@ public class PaymentService {
      * @return the payment attempts
      */
     public List<Payment> paymentsOf(OrderId orderId) {
-        return payments.values().stream()
+        return payments.findAll().stream()
                 .filter(payment -> payment.orderId().equals(orderId))
                 .sorted(Comparator.comparing(Payment::attemptedAt).reversed())
                 .toList();

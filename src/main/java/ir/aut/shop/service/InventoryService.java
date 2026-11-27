@@ -5,10 +5,11 @@ import ir.aut.shop.model.ProductId;
 import ir.aut.shop.model.Quantity;
 import ir.aut.shop.model.StockChange;
 import ir.aut.shop.model.User;
+import ir.aut.shop.repository.ProductRepository;
+import ir.aut.shop.repository.StockChangeLog;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Looking at and adjusting what the warehouse holds (user stories 28 and 29).
@@ -18,17 +19,17 @@ import java.util.Map;
  */
 public class InventoryService {
 
-    private final Map<ProductId, Product> products;
-    private final List<StockChange> changeLog;
+    private final ProductRepository products;
+    private final StockChangeLog changeLog;
 
     /**
      * REQUIRES: both arguments are non-null.
-     * EFFECTS: Builds the service over the given product store and log.
+     * EFFECTS: Builds the service over the given product repository and stock log.
      *
-     * @param products where products are kept, keyed by identity
+     * @param products where products are kept
      * @param changeLog where stock adjustments are recorded
      */
-    public InventoryService(Map<ProductId, Product> products, List<StockChange> changeLog) {
+    public InventoryService(ProductRepository products, StockChangeLog changeLog) {
         if (products == null || changeLog == null) {
             throw new IllegalArgumentException("InventoryService is missing a dependency");
         }
@@ -47,7 +48,7 @@ public class InventoryService {
      */
     public List<Product> viewStock(User actor) {
         requireAdmin(actor);
-        return products.values().stream()
+        return products.findAll().stream()
                 .sorted(Comparator.comparing(Product::name))
                 .toList();
     }
@@ -78,7 +79,7 @@ public class InventoryService {
         } else {
             product.reduceStock(new Quantity(-delta));
         }
-        changeLog.add(new StockChange(productId, delta, reason, actor.id(),
+        changeLog.append(new StockChange(productId, delta, reason, actor.id(),
                 LocalDateTime.now()));
     }
 
@@ -94,18 +95,15 @@ public class InventoryService {
      */
     public List<StockChange> changeLogOf(User actor, ProductId productId) {
         requireAdmin(actor);
-        return changeLog.stream()
+        return changeLog.findAll().stream()
                 .filter(change -> change.productId().equals(productId))
                 .sorted(Comparator.comparing(StockChange::changedAt).reversed())
                 .toList();
     }
 
     private Product requireProduct(ProductId productId) {
-        Product product = products.get(productId);
-        if (product == null) {
-            throw new IllegalArgumentException("No product with id " + productId);
-        }
-        return product;
+        return products.findById(productId).orElseThrow(
+                () -> new IllegalArgumentException("No product with id " + productId));
     }
 
     private static void requireAdmin(User actor) {

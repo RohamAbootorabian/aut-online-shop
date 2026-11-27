@@ -6,6 +6,7 @@ import ir.aut.shop.model.PhoneNumber;
 import ir.aut.shop.model.User;
 import ir.aut.shop.model.UserId;
 import ir.aut.shop.model.UserRole;
+import ir.aut.shop.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,23 +16,24 @@ import java.util.UUID;
 /**
  * Opening an account, signing in and recovering a password (user stories 1 to 6).
  *
- * <p>Accounts live in a map handed in from outside, which is how the shop keeps its data
- * in memory without a database.
+ * <p>Accounts live in a repository handed in from outside. This class never names a
+ * storage technology, so swapping the in-memory store for a database is a change to
+ * {@link ir.aut.shop.Main} alone.
  */
 public class UserService {
 
-    private final Map<UserId, User> users;
+    private final UserRepository users;
     private final Map<String, UserId> resetTokens = new HashMap<>();
 
     /**
      * REQUIRES: users is non-null.
      * EFFECTS: Builds the service over the given account store.
      *
-     * @param users where accounts are kept, keyed by identity
+     * @param users where accounts are kept
      */
-    public UserService(Map<UserId, User> users) {
+    public UserService(UserRepository users) {
         if (users == null) {
-            throw new IllegalArgumentException("User store must not be null");
+            throw new IllegalArgumentException("User repository must not be null");
         }
         this.users = users;
     }
@@ -55,7 +57,7 @@ public class UserService {
         requireFreePhoneNumber(phoneNumber);
         User user = new User(UserId.newId(), email, phoneNumber, fullName,
                 PasswordHash.of(rawPassword), UserRole.CUSTOMER, LocalDateTime.now());
-        users.put(user.id(), user);
+        users.save(user.id(), user);
         return user;
     }
 
@@ -77,7 +79,7 @@ public class UserService {
         requireFreePhoneNumber(phoneNumber);
         User admin = new User(UserId.newId(), email, phoneNumber, fullName,
                 PasswordHash.of(rawPassword), UserRole.ADMIN, LocalDateTime.now());
-        users.put(admin.id(), admin);
+        users.save(admin.id(), admin);
         return admin;
     }
 
@@ -152,7 +154,7 @@ public class UserService {
      * @return the account, or empty
      */
     public Optional<User> findById(UserId userId) {
-        return Optional.ofNullable(users.get(userId));
+        return users.findById(userId);
     }
 
     /**
@@ -188,20 +190,20 @@ public class UserService {
 
     private Optional<User> findByEmailOrPhone(String emailOrPhone) {
         String typed = emailOrPhone.trim();
-        return users.values().stream()
+        return users.findAll().stream()
                 .filter(user -> user.email().value().equalsIgnoreCase(typed)
                         || user.phoneNumber().value().equals(typed))
                 .findFirst();
     }
 
     private Optional<User> findByEmail(Email email) {
-        return users.values().stream()
+        return users.findAll().stream()
                 .filter(user -> user.email().equals(email))
                 .findFirst();
     }
 
     private Optional<User> findByPhoneNumber(PhoneNumber phoneNumber) {
-        return users.values().stream()
+        return users.findAll().stream()
                 .filter(user -> user.phoneNumber().equals(phoneNumber))
                 .findFirst();
     }
@@ -220,10 +222,7 @@ public class UserService {
     }
 
     private User requireUser(UserId userId) {
-        User user = users.get(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("No account with id " + userId);
-        }
-        return user;
+        return users.findById(userId).orElseThrow(
+                () -> new IllegalArgumentException("No account with id " + userId));
     }
 }

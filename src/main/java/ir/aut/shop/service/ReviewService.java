@@ -6,26 +6,26 @@ import ir.aut.shop.model.Review;
 import ir.aut.shop.model.ReviewId;
 import ir.aut.shop.model.UserId;
 import java.time.LocalDateTime;
+import ir.aut.shop.repository.ReviewRepository;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Opinions and scores customers leave on products (user stories 30 to 32).
  */
 public class ReviewService {
 
-    private final Map<ReviewId, Review> reviews;
+    private final ReviewRepository reviews;
     private final OrderService orderService;
 
     /**
      * REQUIRES: both arguments are non-null.
      * EFFECTS: Builds the service over the given review store.
      *
-     * @param reviews where reviews are kept, keyed by identity
+     * @param reviews where reviews are kept
      * @param orderService used to check that a reviewer actually bought the product
      */
-    public ReviewService(Map<ReviewId, Review> reviews, OrderService orderService) {
+    public ReviewService(ReviewRepository reviews, OrderService orderService) {
         if (reviews == null || orderService == null) {
             throw new IllegalArgumentException("ReviewService is missing a dependency");
         }
@@ -58,7 +58,7 @@ public class ReviewService {
         }
         Review review = new Review(ReviewId.newId(), productId, authorId, text, rating,
                 LocalDateTime.now());
-        reviews.put(review.id(), review);
+        reviews.save(review.id(), review);
         return review;
     }
 
@@ -71,7 +71,7 @@ public class ReviewService {
      * @return the published reviews of that product
      */
     public List<Review> reviewsOf(ProductId productId) {
-        return reviews.values().stream()
+        return reviews.findAll().stream()
                 .filter(review -> review.productId().equals(productId))
                 .sorted(Comparator.comparing(Review::createdAt).reversed())
                 .toList();
@@ -87,7 +87,7 @@ public class ReviewService {
      * @return the average rating, between zero and five
      */
     public double averageRating(ProductId productId) {
-        return reviews.values().stream()
+        return reviews.findAll().stream()
                 .filter(review -> review.productId().equals(productId))
                 .mapToInt(review -> review.rating().stars())
                 .average()
@@ -107,7 +107,7 @@ public class ReviewService {
     }
 
     private boolean hasReviewed(UserId authorId, ProductId productId) {
-        return reviews.values().stream()
+        return reviews.findAll().stream()
                 .anyMatch(review -> review.authorId().equals(authorId)
                         && review.productId().equals(productId));
     }

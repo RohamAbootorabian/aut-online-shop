@@ -8,7 +8,8 @@ import ir.aut.shop.model.ProductId;
 import ir.aut.shop.model.StockCount;
 import ir.aut.shop.model.User;
 import java.time.LocalDateTime;
-import java.util.Map;
+import ir.aut.shop.repository.CategoryRepository;
+import ir.aut.shop.repository.ProductRepository;
 
 /**
  * Creating, editing and switching off products (user stories 33 to 35).
@@ -17,18 +18,18 @@ import java.util.Map;
  */
 public class ProductAdminService {
 
-    private final Map<ProductId, Product> products;
-    private final Map<CategoryId, Category> categories;
+    private final ProductRepository products;
+    private final CategoryRepository categories;
 
     /**
      * REQUIRES: both stores are non-null.
      * EFFECTS: Builds the service over the given stores.
      *
-     * @param products where products are kept, keyed by identity
-     * @param categories where categories are kept, keyed by identity
+     * @param products where products are kept
+     * @param categories where categories are kept
      */
-    public ProductAdminService(Map<ProductId, Product> products,
-            Map<CategoryId, Category> categories) {
+    public ProductAdminService(ProductRepository products,
+            CategoryRepository categories) {
         if (products == null || categories == null) {
             throw new IllegalArgumentException("ProductAdminService is missing a dependency");
         }
@@ -59,7 +60,7 @@ public class ProductAdminService {
         requireKnownCategory(categoryId);
         Product product = new Product(ProductId.newId(), name, description, price, stock,
                 categoryId, brand, LocalDateTime.now());
-        products.put(product.id(), product);
+        products.save(product.id(), product);
         return product;
     }
 
@@ -133,22 +134,19 @@ public class ProductAdminService {
     public Category createCategory(User actor, String name) {
         requireAdmin(actor);
         Category category = new Category(CategoryId.newId(), name);
-        categories.put(category.id(), category);
+        categories.save(category.id(), category);
         return category;
     }
 
     private void requireKnownCategory(CategoryId categoryId) {
-        if (!categories.containsKey(categoryId)) {
+        if (!categories.contains(categoryId)) {
             throw new IllegalArgumentException("No category with id " + categoryId);
         }
     }
 
     private Product requireProduct(ProductId productId) {
-        Product product = products.get(productId);
-        if (product == null) {
-            throw new IllegalArgumentException("No product with id " + productId);
-        }
-        return product;
+        return products.findById(productId).orElseThrow(
+                () -> new IllegalArgumentException("No product with id " + productId));
     }
 
     private static void requireAdmin(User actor) {
