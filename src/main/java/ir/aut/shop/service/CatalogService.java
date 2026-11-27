@@ -6,9 +6,10 @@ import ir.aut.shop.model.Product;
 import ir.aut.shop.model.ProductId;
 import ir.aut.shop.model.SearchPhrase;
 import ir.aut.shop.model.SortOption;
+import ir.aut.shop.repository.CategoryRepository;
+import ir.aut.shop.repository.ProductRepository;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -20,19 +21,19 @@ import java.util.Optional;
  */
 public class CatalogService {
 
-    private final Map<ProductId, Product> products;
-    private final Map<CategoryId, Category> categories;
+    private final ProductRepository products;
+    private final CategoryRepository categories;
     private final ReviewService reviewService;
 
     /**
      * REQUIRES: every argument is non-null.
      * EFFECTS: Builds the service over the given stores.
      *
-     * @param products where products are kept, keyed by identity
-     * @param categories where categories are kept, keyed by identity
+     * @param products where products are kept
+     * @param categories where categories are kept
      * @param reviewService supplies the ratings that filtering and sorting need
      */
-    public CatalogService(Map<ProductId, Product> products, Map<CategoryId, Category> categories,
+    public CatalogService(ProductRepository products, CategoryRepository categories,
             ReviewService reviewService) {
         if (products == null || categories == null || reviewService == null) {
             throw new IllegalArgumentException("CatalogService is missing a dependency");
@@ -50,7 +51,7 @@ public class CatalogService {
      * @return the active categories
      */
     public List<Category> listActiveCategories() {
-        return categories.values().stream()
+        return categories.findAll().stream()
                 .filter(Category::isActive)
                 .sorted(Comparator.comparing(Category::name))
                 .toList();
@@ -64,7 +65,7 @@ public class CatalogService {
      * @return the active products
      */
     public List<Product> listActiveProducts() {
-        return products.values().stream()
+        return products.findAll().stream()
                 .filter(Product::isActive)
                 .sorted(Comparator.comparing(Product::name))
                 .toList();
@@ -81,7 +82,7 @@ public class CatalogService {
      * @return the active products in that category
      */
     public List<Product> productsInCategory(CategoryId categoryId) {
-        if (!categories.containsKey(categoryId)) {
+        if (!categories.contains(categoryId)) {
             throw new IllegalArgumentException("No category with id " + categoryId);
         }
         return listActiveProducts().stream()
@@ -99,7 +100,7 @@ public class CatalogService {
      * @return the product, or empty
      */
     public Optional<Product> findProduct(ProductId productId) {
-        return Optional.ofNullable(products.get(productId));
+        return (products.findById(productId));
     }
 
     /**
@@ -111,7 +112,7 @@ public class CatalogService {
      * @return the category, or empty
      */
     public Optional<Category> findCategory(CategoryId categoryId) {
-        return Optional.ofNullable(categories.get(categoryId));
+        return (categories.findById(categoryId));
     }
 
     /**

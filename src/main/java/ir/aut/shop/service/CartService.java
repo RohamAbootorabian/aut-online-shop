@@ -5,7 +5,8 @@ import ir.aut.shop.model.Product;
 import ir.aut.shop.model.ProductId;
 import ir.aut.shop.model.Quantity;
 import ir.aut.shop.model.UserId;
-import java.util.Map;
+import ir.aut.shop.repository.CartRepository;
+import ir.aut.shop.repository.ProductRepository;
 
 /**
  * Keeping each customer's shopping cart (user stories 15 to 19).
@@ -15,19 +16,19 @@ import java.util.Map;
  */
 public class CartService {
 
-    private final Map<UserId, Cart> carts;
-    private final Map<ProductId, Product> products;
+    private final CartRepository carts;
+    private final ProductRepository products;
 
     /**
      * REQUIRES: both stores are non-null.
      * EFFECTS: Builds the service over the given carts and products.
      *
-     * @param carts where carts are kept, keyed by their owner
-     * @param products where products are kept, keyed by identity
+     * @param carts where carts are kept
+     * @param products where products are kept
      */
-    public CartService(Map<UserId, Cart> carts, Map<ProductId, Product> products) {
+    public CartService(CartRepository carts, ProductRepository products) {
         if (carts == null || products == null) {
-            throw new IllegalArgumentException("Cart and product stores must not be null");
+            throw new IllegalArgumentException("Cart and product repositories must not be null");
         }
         this.carts = carts;
         this.products = products;
@@ -35,7 +36,7 @@ public class CartService {
 
     /**
      * REQUIRES: ownerId is non-null.
-     * MODIFIES: the cart store, when the customer had no cart yet.
+     * MODIFIES: the cart repository, when the customer had no cart yet.
      * EFFECTS: Returns the customer's cart, creating an empty one the first time
      * (user story 16).
      *
@@ -46,7 +47,11 @@ public class CartService {
         if (ownerId == null) {
             throw new IllegalArgumentException("Cart owner must not be null");
         }
-        return carts.computeIfAbsent(ownerId, Cart::new);
+        return carts.findById(ownerId).orElseGet(() -> {
+            Cart fresh = new Cart(ownerId);
+            carts.save(ownerId, fresh);
+            return fresh;
+        });
     }
 
     /**
@@ -127,10 +132,7 @@ public class CartService {
     }
 
     private Product requireKnownProduct(ProductId productId) {
-        Product product = products.get(productId);
-        if (product == null) {
-            throw new IllegalArgumentException("No product with id " + productId);
-        }
-        return product;
+        return products.findById(productId).orElseThrow(
+                () -> new IllegalArgumentException("No product with id " + productId));
     }
 }
