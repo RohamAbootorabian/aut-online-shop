@@ -1,0 +1,135 @@
+@startuml 06-sequence-diagram
+' Bonus sequence diagram: paying for an order, refused and then retried.
+' Follows PaymentService.pay line by line, including user story 24.
+
+title Online Shop — Sequence Diagram: pay for an order (refused, then retried)
+
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #2C4A73
+  LifeLineBorderColor #9DB4D1
+  ParticipantBackgroundColor #FDFDFD
+  ParticipantBorderColor #4A6FA5
+  BoxBackgroundColor #F7FAFF
+  BoxBorderColor #9DB4D1
+}
+
+actor Customer as cust
+
+box "cli" #F7FAFF
+  participant "ck : CheckoutCli" as cli
+end box
+
+box "service" #FFFFFF
+  participant "ps : PaymentService" as ps
+  participant "orders : PayableOrders" as po
+end box
+
+box "model" #F7FAFF
+  participant "order : Order" as order
+  participant "attempt : Payment" as pay
+end box
+
+participant "gw : PaymentGateway" as gw
+participant "repo : PaymentRepository" as repo
+
+cust -> cli : choose "Pay for this order"
+activate cli
+
+cli -> ps : pay(orderId, payerId)
+activate ps
+
+ps -> po : findOrderOfCustomer(orderId, payerId)
+activate po
+po --> ps : Optional<Order>
+deactivate po
+
+alt the order is not this customer's
+  ps --> cli : IllegalArgumentException
+  note right of ps
+    One customer cannot reach another's
+    order, because ownership is part of
+    the question, not a check added after
+    (user story 27).
+  end note
+end
+
+ps -> order : isPayable()
+activate order
+order --> ps : true
+deactivate order
+
+alt the order is already PAID or CANCELLED
+  ps --> cli : IllegalStateException
+  note right of ps
+    This is what stops a paid order being
+    paid a second time (user story 23).
+  end note
+end
+
+create pay
+ps -> pay : new Payment(id, orderId,\norder.totalAmount(), now)
+ps -> repo : save(attempt.id(), attempt)
+
+ps -> gw : authorize(orderId, order.totalAmount())
+activate gw
+gw --> ps : GatewayResult(approved = false,\n"Insufficient funds")
+deactivate gw
+
+ps -> pay : markFailed()
+activate pay
+deactivate pay
+
+ps --> cli : attempt (FAILED)
+deactivate ps
+
+cli -> cust : "Payment refused: Insufficient funds"
+note over order
+  The order is still AWAITING_PAYMENT.
+  Nothing was rolled back, because
+  nothing was committed.
+end note
+
+== the customer tries again (user story 24) ==
+
+cust -> cli : choose "Pay for this order"
+cli -> ps : pay(orderId, payerId)
+activate ps
+
+ps -> po : findOrderOfCustomer(orderId, payerId)
+activate po
+po --> ps : Optional<Order>
+deactivate po
+
+ps -> order : isPayable()
+activate order
+order --> ps : true
+deactivate order
+
+create "retry : Payment" as pay2
+ps -> pay2 : new Payment(...)
+ps -> repo : save(retry.id(), retry)
+
+ps -> gw : authorize(orderId, order.totalAmount())
+activate gw
+gw --> ps : GatewayResult(approved = true, "SIM-8f2c…")
+deactivate gw
+
+ps -> pay2 : markSuccessful("SIM-8f2c…")
+ps -> order : markPaid()
+activate order
+deactivate order
+
+ps --> cli : retry (SUCCESSFUL)
+deactivate ps
+
+cli -> cust : "Paid. Reference SIM-8f2c…"
+deactivate cli
+
+note over repo
+  Both attempts are kept. A payment records
+  a try, not a result, which is why the order
+  now has two of them and only one succeeded.
+end note
+
+@enduml

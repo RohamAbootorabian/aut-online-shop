@@ -30,8 +30,17 @@ import ir.aut.shop.model.StockChange;
 import ir.aut.shop.model.StockCount;
 import ir.aut.shop.model.User;
 import ir.aut.shop.model.UserId;
-import java.util.ArrayList;
-import java.util.HashMap;
+import ir.aut.shop.repository.ProductRepository;
+import ir.aut.shop.service.AccessPolicy;
+import ir.aut.shop.service.sorting.SortStrategies;
+import ir.aut.shop.repository.memory.InMemoryCartRepository;
+import ir.aut.shop.repository.memory.InMemoryCategoryRepository;
+import ir.aut.shop.repository.memory.InMemoryOrderRepository;
+import ir.aut.shop.repository.memory.InMemoryPaymentRepository;
+import ir.aut.shop.repository.memory.InMemoryProductRepository;
+import ir.aut.shop.repository.memory.InMemoryReviewRepository;
+import ir.aut.shop.repository.memory.InMemoryStockChangeLog;
+import ir.aut.shop.repository.memory.InMemoryUserRepository;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +55,7 @@ import org.junit.jupiter.api.Test;
  */
 class ShopScenarioTest {
 
-    private Map<ProductId, Product> products;
+    private ProductRepository products;
     private SimulatedPaymentGateway gateway;
 
     private UserService userService;
@@ -66,25 +75,27 @@ class ShopScenarioTest {
 
     @BeforeEach
     void setUp() {
-        Map<UserId, User> users = new HashMap<>();
-        Map<CategoryId, Category> categories = new HashMap<>();
-        Map<UserId, Cart> carts = new HashMap<>();
-        Map<OrderId, Order> orders = new HashMap<>();
-        Map<PaymentId, Payment> payments = new HashMap<>();
-        Map<ReviewId, Review> reviews = new HashMap<>();
-        List<StockChange> stockChangeLog = new ArrayList<>();
-        products = new HashMap<>();
+        var users = new InMemoryUserRepository();
+        var categories = new InMemoryCategoryRepository();
+        var carts = new InMemoryCartRepository();
+        var orders = new InMemoryOrderRepository();
+        var payments = new InMemoryPaymentRepository();
+        var reviews = new InMemoryReviewRepository();
+        var stockChangeLog = new InMemoryStockChangeLog();
+        products = new InMemoryProductRepository();
         gateway = new SimulatedPaymentGateway();
 
+        var access = new AccessPolicy();
         userService = new UserService(users);
         addressService = new AddressService(users);
         cartService = new CartService(carts, products);
-        orderService = new OrderService(orders, users, products, cartService);
+        orderService = new OrderService(orders, users, products, cartService, access);
         reviewService = new ReviewService(reviews, orderService);
-        catalogService = new CatalogService(products, categories, reviewService);
+        catalogService = new CatalogService(products, categories, reviewService,
+                SortStrategies.standard());
         paymentService = new PaymentService(payments, orderService, gateway);
-        inventoryService = new InventoryService(products, stockChangeLog);
-        productAdminService = new ProductAdminService(products, categories);
+        inventoryService = new InventoryService(products, stockChangeLog, access);
+        productAdminService = new ProductAdminService(products, categories, access);
 
         admin = userService.registerAdmin(new Email("admin@shop.ir"),
                 new PhoneNumber("09120000000"), "Shop Manager", "admin123");

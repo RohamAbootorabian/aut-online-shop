@@ -1,0 +1,140 @@
+@startuml 02-object-diagram
+' Object diagram: one real moment in the running shop.
+' The values are the ones Main.seedShop creates, so this snapshot can be reproduced by
+' starting the program and following the steps in the note.
+
+title Online Shop — Object Diagram (one customer, mid-checkout)
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam objectBackgroundColor #FDFDFD
+skinparam objectBorderColor #4A6FA5
+skinparam ArrowColor #2C4A73
+
+object "sara : User" as sara {
+  id = UserId("3f9a…")
+  email = Email("sara@shop.ir")
+  phoneNumber = PhoneNumber("09121112233")
+  fullName = "Sara Ahmadi"
+  role = CUSTOMER
+  createdAt = 2026-11-27T10:04
+}
+
+object "home : Address" as home {
+  id = AddressId("a71c…")
+  recipientName = "Sara Ahmadi"
+  city = "Tehran"
+  postalCode = PostalCode("1234567890")
+  title = "home"
+  isDefault = true
+}
+
+object "saraCart : Cart" as cart {
+  ownerId = UserId("3f9a…")
+  itemsSubtotal() = Money(2_200_000)
+}
+
+object "line1 : CartLine" as line1 {
+  productId = ProductId("c4d1…")
+  productName = "Clean Code"
+  unitPrice = Money(950_000)
+  quantity = Quantity(2)
+  lineTotal() = Money(1_900_000)
+}
+
+object "line2 : CartLine" as line2 {
+  productId = ProductId("e82b…")
+  productName = "Domain-Driven Design"
+  unitPrice = Money(1_250_000)
+  quantity = Quantity(1)
+  lineTotal() = Money(1_250_000)
+}
+
+object "cleanCode : Product" as cleanCode {
+  id = ProductId("c4d1…")
+  name = "Clean Code"
+  price = Money(950_000)
+  stock = StockCount(12)
+  brand = "Prentice Hall"
+  timesSold = 0
+  active = true
+}
+
+object "ddd : Product" as ddd {
+  id = ProductId("e82b…")
+  name = "Domain-Driven Design"
+  price = Money(1_250_000)
+  stock = StockCount(7)
+  brand = "Addison-Wesley"
+  timesSold = 0
+  active = true
+}
+
+object "books : Category" as books {
+  id = CategoryId("9b20…")
+  name = "Books"
+  active = true
+}
+
+object "order77 : Order" as order {
+  id = OrderId("77fe…")
+  customerId = UserId("3f9a…")
+  shippingFee = Money(300_000)
+  itemsSubtotal() = Money(2_200_000)
+  totalAmount() = Money(2_500_000)
+  status = AWAITING_PAYMENT
+  placedAt = 2026-11-27T10:21
+}
+
+object "orderLine1 : OrderLine" as oline1 {
+  productName = "Clean Code"
+  unitPrice = Money(950_000)
+  quantity = Quantity(2)
+}
+
+object "orderLine2 : OrderLine" as oline2 {
+  productName = "Domain-Driven Design"
+  unitPrice = Money(1_250_000)
+  quantity = Quantity(1)
+}
+
+object "firstAttempt : Payment" as payment {
+  id = PaymentId("50ab…")
+  orderId = OrderId("77fe…")
+  amount = Money(2_500_000)
+  status = FAILED
+  gatewayReference = null
+  attemptedAt = 2026-11-27T10:22
+}
+
+sara *-- home
+sara -- cart : owns
+cart *-- line1
+cart *-- line2
+line1 ..> cleanCode : copied from
+line2 ..> ddd : copied from
+cleanCode --> books
+ddd --> books
+sara <-- order : placed by
+order *-- oline1
+order *-- oline2
+order *-- home : ships to
+order <-- payment : paid by
+
+note bottom of payment
+  The order is still AWAITING_PAYMENT because this
+  attempt was refused. Story 24 lets Sara try again:
+  a second Payment will be created, and only then
+  does the order become PAID. The attempt is kept
+  either way — a payment is a record of a try, not
+  of a result.
+end note
+
+note bottom of line1
+  unitPrice is a copy taken when the product was
+  added, not a pointer to the product. If an admin
+  raises the price now, this cart still totals
+  2,200,000.
+end note
+
+@enduml

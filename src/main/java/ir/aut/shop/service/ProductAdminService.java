@@ -8,7 +8,8 @@ import ir.aut.shop.model.ProductId;
 import ir.aut.shop.model.StockCount;
 import ir.aut.shop.model.User;
 import java.time.LocalDateTime;
-import java.util.Map;
+import ir.aut.shop.repository.CategoryRepository;
+import ir.aut.shop.repository.ProductRepository;
 
 /**
  * Creating, editing and switching off products (user stories 33 to 35).
@@ -17,23 +18,26 @@ import java.util.Map;
  */
 public class ProductAdminService {
 
-    private final Map<ProductId, Product> products;
-    private final Map<CategoryId, Category> categories;
+    private final AccessPolicy access;
+    private final ProductRepository products;
+    private final CategoryRepository categories;
 
     /**
      * REQUIRES: both stores are non-null.
      * EFFECTS: Builds the service over the given stores.
      *
-     * @param products where products are kept, keyed by identity
-     * @param categories where categories are kept, keyed by identity
+     * @param products where products are kept
+     * @param categories where categories are kept
+     * @param access decides who may act
      */
-    public ProductAdminService(Map<ProductId, Product> products,
-            Map<CategoryId, Category> categories) {
-        if (products == null || categories == null) {
+    public ProductAdminService(ProductRepository products,
+            CategoryRepository categories, AccessPolicy access) {
+        if (products == null || categories == null || access == null) {
             throw new IllegalArgumentException("ProductAdminService is missing a dependency");
         }
         this.products = products;
         this.categories = categories;
+        this.access = access;
     }
 
     /**
@@ -55,11 +59,11 @@ public class ProductAdminService {
      */
     public Product createProduct(User actor, String name, String description, Money price,
             StockCount stock, CategoryId categoryId, String brand) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "manage products");
         requireKnownCategory(categoryId);
         Product product = new Product(ProductId.newId(), name, description, price, stock,
                 categoryId, brand, LocalDateTime.now());
-        products.put(product.id(), product);
+        products.save(product.id(), product);
         return product;
     }
 
@@ -81,7 +85,7 @@ public class ProductAdminService {
      */
     public void updateProduct(User actor, ProductId productId, String name, String description,
             Money price, CategoryId categoryId, String brand) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "manage products");
         requireKnownCategory(categoryId);
         Product product = requireProduct(productId);
         product.rename(name);
@@ -102,7 +106,7 @@ public class ProductAdminService {
      * @param productId which product to switch off
      */
     public void deactivateProduct(User actor, ProductId productId) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "manage products");
         requireProduct(productId).deactivate();
     }
 
@@ -116,7 +120,7 @@ public class ProductAdminService {
      * @param productId which product to switch back on
      */
     public void activateProduct(User actor, ProductId productId) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "manage products");
         requireProduct(productId).activate();
     }
 
@@ -131,29 +135,21 @@ public class ProductAdminService {
      * @return the category that was created
      */
     public Category createCategory(User actor, String name) {
-        requireAdmin(actor);
+        access.requireAdmin(actor, "manage products");
         Category category = new Category(CategoryId.newId(), name);
-        categories.put(category.id(), category);
+        categories.save(category.id(), category);
         return category;
     }
 
     private void requireKnownCategory(CategoryId categoryId) {
-        if (!categories.containsKey(categoryId)) {
+        if (!categories.contains(categoryId)) {
             throw new IllegalArgumentException("No category with id " + categoryId);
         }
     }
 
     private Product requireProduct(ProductId productId) {
-        Product product = products.get(productId);
-        if (product == null) {
-            throw new IllegalArgumentException("No product with id " + productId);
-        }
-        return product;
+        return products.findById(productId).orElseThrow(
+                () -> new IllegalArgumentException("No product with id " + productId));
     }
 
-    private static void requireAdmin(User actor) {
-        if (actor == null || !actor.isAdmin()) {
-            throw new IllegalArgumentException("Only an admin may manage products");
-        }
-    }
 }
