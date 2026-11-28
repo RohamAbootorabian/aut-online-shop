@@ -1,0 +1,95 @@
+@startuml 07-sequence-review
+' Second sequence diagram: writing a product review.
+' Follows ReviewService.addReview line by line (user stories 30, 31 and 32).
+
+title Online Shop — Sequence Diagram: write a product review
+
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #2C4A73
+  LifeLineBorderColor #9DB4D1
+  ParticipantBackgroundColor #FDFDFD
+  ParticipantBorderColor #4A6FA5
+  BoxBackgroundColor #F7FAFF
+  BoxBorderColor #9DB4D1
+}
+
+actor Customer as cust
+
+box "cli" #F7FAFF
+  participant "rc : ReviewCli" as cli
+end box
+
+box "service" #FFFFFF
+  participant "rs : ReviewService" as rs
+  participant "purchases :\nPurchaseHistory" as ph
+end box
+
+participant "repo : ReviewRepository" as repo
+
+box "model" #F7FAFF
+  participant "review : Review" as review
+end box
+
+cust -> cli : choose "Write a review"
+activate cli
+
+cli -> cli : list the products in the\ncustomer's paid orders
+cust -> cli : pick a product, type the text\nand a rating from 1 to 5
+
+cli -> rs : addReview(authorId, productId,\ntext, rating)
+activate rs
+
+rs -> ph : hasPurchased(authorId, productId)
+activate ph
+ph --> rs : boolean
+deactivate ph
+
+alt the customer never bought this product
+  rs --> cli : IllegalArgumentException\n"Only a buyer of this product may review it"
+  note right of rs
+    User stories 30 and 31. The reviewing
+    service asks one question of one port.
+    It does not hold an OrderService and
+    could not place an order if it tried
+    (interface segregation).
+  end note
+end
+
+rs -> repo : findAll()
+activate repo
+repo --> rs : List<Review>
+deactivate repo
+
+rs -> rs : hasReviewed(authorId, productId)
+
+alt the customer has already reviewed it
+  rs --> cli : IllegalArgumentException\n"You have already reviewed this product"
+  note right of rs
+    One review per buyer per product.
+  end note
+end
+
+create review
+rs -> review : new Review(id, productId, authorId,\ntext, rating, now)
+note right of review
+  Review is a record: once written it is a
+  value, not something that changes. Editing
+  one would mean replacing it.
+end note
+
+rs -> repo : save(review.id(), review)
+rs --> cli : review
+deactivate rs
+
+cli -> cust : "Thank you. Your review has been published."
+deactivate cli
+
+note over ph
+  PurchaseHistory is implemented by OrderService,
+  but ReviewService never names that class. The
+  dependency points at an interface, so either
+  side can be replaced without the other noticing.
+end note
+
+@enduml
