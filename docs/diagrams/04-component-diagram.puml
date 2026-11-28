@@ -1,0 +1,105 @@
+@startuml 04-component-diagram
+' Component diagram. Every arrow here is an import that exists in the code, and every
+' arrow that is absent is one the code does not have — proved by the greps recorded in
+' docs/DESIGN-PHASE2.md.
+
+title Online Shop — Component Diagram
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam nodesep 70
+skinparam ranksep 70
+skinparam component {
+  BackgroundColor #FDFDFD
+  BorderColor #4A6FA5
+}
+skinparam package {
+  BackgroundColor #F7FAFF
+  BorderColor #9DB4D1
+}
+skinparam ArrowColor #2C4A73
+skinparam interface {
+  BackgroundColor #FFF6E0
+  BorderColor #C99A2E
+}
+
+component "Main\n<<composition root>>" as main
+
+package "cli" {
+  component "ShopCli" as shopcli
+  component "AuthCli\nProfileCli\nCatalogCli\nCartCli\nCheckoutCli\nOrderCli\nReviewCli\nAdminCli" as screens
+  component "ConsoleIo" as io
+  component "Session" as session
+}
+
+package "service" {
+  component "UserService\nPasswordResetService\nAddressService\nCartService\nCatalogService\nOrderService\nPaymentService\nReviewService\nInventoryService\nProductAdminService" as services
+  component "AccessPolicy" as policy
+  component "sorting\nProductSortStrategy ×5\nSortStrategies" as sorting
+}
+
+package "repository" {
+  interface "Repository<I,T>" as repoport
+  interface "StockChangeLog" as logport
+}
+
+package "repository.memory" {
+  component "InMemoryRepository\nInMemory…Repository ×7\nInMemoryStockChangeLog" as memory
+}
+
+package "model" {
+  component "Entities\nUser · Product · Cart\nOrder · Payment · Category" as entities
+  component "Value objects\nMoney · Quantity · Email\nIds · Rating · …" as values
+}
+
+interface "PaymentGateway" as gwport
+component "SimulatedPaymentGateway\nDailyLimitPaymentGateway" as gateways
+
+' ---- what depends on what ----
+main --> shopcli : builds
+main --> services : builds and injects
+main --> memory : chooses
+main --> gateways : chooses
+main --> policy : builds
+main --> sorting : registers
+
+shopcli --> screens
+screens --> io
+screens --> session
+screens --> services
+screens --> entities
+
+services --> repoport
+services --> logport
+services --> gwport
+services --> policy
+services --> sorting
+services --> entities
+services --> values
+
+sorting --> entities
+
+memory ..|> repoport
+memory ..|> logport
+gateways ..|> gwport
+
+entities --> values
+
+note bottom of entities
+  model imports nothing from service,
+  repository or cli. It is the only
+  package in the program that would
+  still compile on its own.
+end note
+
+note right of repoport
+  The arrow from service points at the
+  interface, and the arrow from memory
+  points at it too — from below. That
+  shape is dependency inversion: the
+  high-level policy does not depend on
+  the low-level detail; both depend on
+  the abstraction.
+end note
+
+@enduml

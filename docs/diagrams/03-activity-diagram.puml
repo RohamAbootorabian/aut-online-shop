@@ -1,0 +1,116 @@
+@startuml 03-activity-diagram
+' Activity diagram for checkout, drawn from OrderService.startCheckout and
+' PaymentService.pay. Every decision below is a real branch in that code.
+'
+' The lane is named again after every endif: PlantUML keeps whichever lane the last
+' branch left it in, which would otherwise put service work in the customer's column.
+
+title Online Shop — Activity Diagram: checkout and payment
+
+skinparam shadowing false
+skinparam ActivityBackgroundColor #FDFDFD
+skinparam ActivityBorderColor #4A6FA5
+skinparam ActivityDiamondBackgroundColor #EEF2F7
+skinparam ArrowColor #2C4A73
+
+|#F7FAFF|Customer (cli)|
+start
+:Choose "Checkout";
+
+|#FFFFFF|OrderService|
+:Look up the customer;
+if (Is the cart empty?) then (yes)
+  |Customer (cli)|
+  :Show "Cannot place an order
+  from an empty cart";
+  stop
+endif
+
+|Customer (cli)|
+:Pick a shipping address;
+
+|OrderService|
+if (Does the address belong
+to this customer?) then (no)
+  |Customer (cli)|
+  :Show "Address does not belong
+  to this customer";
+  stop
+endif
+
+|OrderService|
+:Check every cart line again;
+note right
+  Between adding to the cart and
+  checking out, a product may have
+  been switched off or sold out.
+end note
+
+if (Is every product still
+on sale and in stock?) then (no)
+  |Customer (cli)|
+  :Show which product failed
+  and how many are left;
+  stop
+endif
+
+|OrderService|
+:Freeze each CartLine into an OrderLine;
+:Work out the total from the frozen
+prices and the flat shipping fee;
+note right
+  The amount is never taken from
+  the customer (user story 22).
+end note
+:Take the ordered units off the shelf;
+:Empty the cart;
+:Save the order as AWAITING_PAYMENT;
+
+|Customer (cli)|
+:Choose "Pay for this order";
+
+|#FFFFFF|PaymentService|
+if (Is the order still payable?) then (no)
+  |Customer (cli)|
+  :Show "Order is already PAID
+  or CANCELLED";
+  stop
+endif
+
+|PaymentService|
+:Record a Payment attempt as PENDING;
+
+|#F7FAFF|PaymentGateway|
+:Authorise the order's exact total;
+
+|#FFFFFF|PaymentService|
+if (Did the gateway approve?) then (yes)
+  :Mark the attempt SUCCESSFUL
+  with the gateway reference;
+  :Mark the order PAID;
+  |Customer (cli)|
+  :Show the payment reference;
+  stop
+else (no)
+  |PaymentService|
+  :Mark the attempt FAILED;
+  note right
+    The order is left payable on
+    purpose, which is what lets
+    user story 24 retry. The failed
+    attempt is kept either way.
+  end note
+  |Customer (cli)|
+  :Show the refusal reason;
+  if (Try again?) then (yes)
+    |PaymentService|
+    :Start a new attempt
+    for the same order;
+    detach
+  else (no)
+    |Customer (cli)|
+    stop
+  endif
+endif
+
+@enduml

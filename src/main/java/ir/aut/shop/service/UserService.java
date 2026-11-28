@@ -6,32 +6,34 @@ import ir.aut.shop.model.PhoneNumber;
 import ir.aut.shop.model.User;
 import ir.aut.shop.model.UserId;
 import ir.aut.shop.model.UserRole;
+import ir.aut.shop.repository.UserRepository;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
- * Opening an account, signing in and recovering a password (user stories 1 to 6).
+ * Opening an account and signing in (user stories 1, 2 and 6).
  *
- * <p>Accounts live in a map handed in from outside, which is how the shop keeps its data
- * in memory without a database.
+ * <p>Recovering a forgotten password is {@link PasswordResetService}'s job, not this
+ * class's: issuing and spending a reset token changes for reasons that have nothing to
+ * do with how an account is opened.
+ *
+ * <p>Accounts live in a repository handed in from outside. This class never names a
+ * storage technology, so swapping the in-memory store for a database is a change to
+ * {@link ir.aut.shop.Main} alone.
  */
 public class UserService {
 
-    private final Map<UserId, User> users;
-    private final Map<String, UserId> resetTokens = new HashMap<>();
+    private final UserRepository users;
 
     /**
      * REQUIRES: users is non-null.
      * EFFECTS: Builds the service over the given account store.
      *
-     * @param users where accounts are kept, keyed by identity
+     * @param users where accounts are kept
      */
-    public UserService(Map<UserId, User> users) {
+    public UserService(UserRepository users) {
         if (users == null) {
-            throw new IllegalArgumentException("User store must not be null");
+            throw new IllegalArgumentException("User repository must not be null");
         }
         this.users = users;
     }
@@ -55,7 +57,7 @@ public class UserService {
         requireFreePhoneNumber(phoneNumber);
         User user = new User(UserId.newId(), email, phoneNumber, fullName,
                 PasswordHash.of(rawPassword), UserRole.CUSTOMER, LocalDateTime.now());
-        users.put(user.id(), user);
+        users.save(user.id(), user);
         return user;
     }
 
@@ -77,7 +79,7 @@ public class UserService {
         requireFreePhoneNumber(phoneNumber);
         User admin = new User(UserId.newId(), email, phoneNumber, fullName,
                 PasswordHash.of(rawPassword), UserRole.ADMIN, LocalDateTime.now());
-        users.put(admin.id(), admin);
+        users.save(admin.id(), admin);
         return admin;
     }
 
@@ -107,42 +109,6 @@ public class UserService {
     }
 
     /**
-     * REQUIRES: email is non-null.
-     * MODIFIES: the reset-token store.
-     * EFFECTS: Issues a single-use token for resetting the password and returns it, or
-     * throws IllegalArgumentException when no account uses that address. User story 4
-     * requires the address to be registered already.
-     *
-     * @param email the address of the account to recover
-     * @return the token the customer must present to set a new password
-     */
-    public String requestPasswordReset(Email email) {
-        User user = findByEmail(email).orElseThrow(() -> new IllegalArgumentException(
-                "No account uses the address " + email));
-        String token = UUID.randomUUID().toString();
-        resetTokens.put(token, user.id());
-        return token;
-    }
-
-    /**
-     * REQUIRES: token and newPassword are non-null.
-     * MODIFIES: the matching account and the reset-token store.
-     * EFFECTS: Replaces the account's password and spends the token, or throws
-     * IllegalArgumentException when the token is unknown or already used.
-     *
-     * @param token the token issued by requestPasswordReset
-     * @param newPassword the new password as typed
-     */
-    public void resetPassword(String token, String newPassword) {
-        UserId userId = resetTokens.remove(token);
-        if (userId == null) {
-            throw new IllegalArgumentException("Password reset link is unknown or already used");
-        }
-        User user = requireUser(userId);
-        user.changePassword(PasswordHash.of(newPassword));
-    }
-
-    /**
      * REQUIRES: userId is non-null.
      * MODIFIES: nothing.
      * EFFECTS: Returns the account with that identity, or empty when there is none
@@ -152,7 +118,7 @@ public class UserService {
      * @return the account, or empty
      */
     public Optional<User> findById(UserId userId) {
-        return Optional.ofNullable(users.get(userId));
+        return users.findById(userId);
     }
 
     /**
@@ -186,22 +152,45 @@ public class UserService {
         return user;
     }
 
+    /**
+     * REQUIRES: userId and newHash are non-null.
+     * MODIFIES: the matching account.
+     * EFFECTS: Replaces the account's password, or throws IllegalArgumentException when
+     * the account is unknown. Whether the caller was entitled to ask is decided before
+     * this point, by whoever is handling the recovery.
+     *
+     * @param userId whose password to replace
+     * @param newHash the new password, already hashed
+     */
+    public void changePassword(UserId userId, PasswordHash newHash) {
+        requireUser(userId).changePassword(newHash);
+    }
+
     private Optional<User> findByEmailOrPhone(String emailOrPhone) {
         String typed = emailOrPhone.trim();
-        return users.values().stream()
+        return users.findAll().stream()
                 .filter(user -> user.email().value().equalsIgnoreCase(typed)
                         || user.phoneNumber().value().equals(typed))
                 .findFirst();
     }
 
-    private Optional<User> findByEmail(Email email) {
-        return users.values().stream()
+    /**
+     * REQUIRES: email is non-null.
+     * MODIFIES: nothing.
+     * EFFECTS: Returns the account registered under that address, or empty when there is
+     * none.
+     *
+     * @param email the address to look for
+     * @return the account, or empty
+     */
+    public Optional<User> findByEmail(Email email) {
+        return users.findAll().stream()
                 .filter(user -> user.email().equals(email))
                 .findFirst();
     }
 
     private Optional<User> findByPhoneNumber(PhoneNumber phoneNumber) {
-        return users.values().stream()
+        return users.findAll().stream()
                 .filter(user -> user.phoneNumber().equals(phoneNumber))
                 .findFirst();
     }
@@ -220,10 +209,7 @@ public class UserService {
     }
 
     private User requireUser(UserId userId) {
-        User user = users.get(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("No account with id " + userId);
-        }
-        return user;
+        return users.findById(userId).orElseThrow(
+                () -> new IllegalArgumentException("No account with id " + userId));
     }
 }

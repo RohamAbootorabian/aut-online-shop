@@ -9,3 +9,6 @@ target/
 
 # macOS
 .DS_Store
+
+# Intermediate HTML produced while rendering the design PDF
+*.rtl.html

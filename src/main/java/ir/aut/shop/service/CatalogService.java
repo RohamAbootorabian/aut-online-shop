@@ -6,9 +6,11 @@ import ir.aut.shop.model.Product;
 import ir.aut.shop.model.ProductId;
 import ir.aut.shop.model.SearchPhrase;
 import ir.aut.shop.model.SortOption;
+import ir.aut.shop.repository.CategoryRepository;
+import ir.aut.shop.repository.ProductRepository;
+import ir.aut.shop.service.sorting.SortStrategies;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -20,26 +22,30 @@ import java.util.Optional;
  */
 public class CatalogService {
 
-    private final Map<ProductId, Product> products;
-    private final Map<CategoryId, Category> categories;
-    private final ReviewService reviewService;
+    private final ProductRepository products;
+    private final CategoryRepository categories;
+    private final ProductRatings ratings;
+    private final SortStrategies sortStrategies;
 
     /**
      * REQUIRES: every argument is non-null.
      * EFFECTS: Builds the service over the given stores.
      *
-     * @param products where products are kept, keyed by identity
-     * @param categories where categories are kept, keyed by identity
-     * @param reviewService supplies the ratings that filtering and sorting need
+     * @param products where products are kept
+     * @param categories where categories are kept
+     * @param ratings supplies the scores that filtering and sorting need
+     * @param sortStrategies which strategy answers which sort option
      */
-    public CatalogService(Map<ProductId, Product> products, Map<CategoryId, Category> categories,
-            ReviewService reviewService) {
-        if (products == null || categories == null || reviewService == null) {
+    public CatalogService(ProductRepository products, CategoryRepository categories,
+            ProductRatings ratings, SortStrategies sortStrategies) {
+        if (products == null || categories == null || ratings == null
+                || sortStrategies == null) {
             throw new IllegalArgumentException("CatalogService is missing a dependency");
         }
         this.products = products;
         this.categories = categories;
-        this.reviewService = reviewService;
+        this.ratings = ratings;
+        this.sortStrategies = sortStrategies;
     }
 
     /**
@@ -50,7 +56,7 @@ public class CatalogService {
      * @return the active categories
      */
     public List<Category> listActiveCategories() {
-        return categories.values().stream()
+        return categories.findAll().stream()
                 .filter(Category::isActive)
                 .sorted(Comparator.comparing(Category::name))
                 .toList();
@@ -64,7 +70,7 @@ public class CatalogService {
      * @return the active products
      */
     public List<Product> listActiveProducts() {
-        return products.values().stream()
+        return products.findAll().stream()
                 .filter(Product::isActive)
                 .sorted(Comparator.comparing(Product::name))
                 .toList();
@@ -81,7 +87,7 @@ public class CatalogService {
      * @return the active products in that category
      */
     public List<Product> productsInCategory(CategoryId categoryId) {
-        if (!categories.containsKey(categoryId)) {
+        if (!categories.contains(categoryId)) {
             throw new IllegalArgumentException("No category with id " + categoryId);
         }
         return listActiveProducts().stream()
@@ -99,7 +105,7 @@ public class CatalogService {
      * @return the product, or empty
      */
     public Optional<Product> findProduct(ProductId productId) {
-        return Optional.ofNullable(products.get(productId));
+        return (products.findById(productId));
     }
 
     /**
@@ -111,7 +117,7 @@ public class CatalogService {
      * @return the category, or empty
      */
     public Optional<Category> findCategory(CategoryId categoryId) {
-        return Optional.ofNullable(categories.get(categoryId));
+        return (categories.findById(categoryId));
     }
 
     /**
@@ -167,7 +173,7 @@ public class CatalogService {
             throw new IllegalArgumentException("Products and sort option must not be null");
         }
         return productsToSort.stream()
-                .sorted(comparatorFor(option))
+                .sorted(sortStrategies.strategyFor(option).comparator(ratings))
                 .toList();
     }
 
@@ -180,18 +186,6 @@ public class CatalogService {
      * @return the average rating
      */
     public double ratingOf(Product product) {
-        return reviewService.averageRating(product.id());
-    }
-
-    private Comparator<Product> comparatorFor(SortOption option) {
-        return switch (option) {
-            case CHEAPEST -> Comparator.comparing(product -> product.price().amount());
-            case MOST_EXPENSIVE ->
-                    Comparator.<Product, java.math.BigDecimal>comparing(
-                            product -> product.price().amount()).reversed();
-            case NEWEST -> Comparator.comparing(Product::createdAt).reversed();
-            case MOST_POPULAR -> Comparator.comparingInt(Product::timesSold).reversed();
-            case HIGHEST_RATED -> Comparator.comparingDouble(this::ratingOf).reversed();
-        };
+        return ratings.averageRating(product.id());
     }
 }
